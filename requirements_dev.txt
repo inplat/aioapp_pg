@@ -23,5 +23,5 @@ tox==3.1.2
 
 async-generator==1.9
 async_timeout==3.0.0
-cryptography==2.2.2
+cryptography==2.3
 PyYAML==3.13
