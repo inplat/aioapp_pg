@@ -7,7 +7,7 @@ mypy==0.620
 bandit==1.4.0
 
 pytest-docker-compose==1.0.1
-pytest==3.6.3
+pytest==3.6.4
 pytest-asyncio==0.8.0
 pytest-aiohttp==0.3.0
 pytest-cov==2.5.1
