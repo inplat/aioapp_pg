@@ -15,7 +15,7 @@ SPAN_TYPE_POSTGRES = 'postgres'
 SPAN_KIND_POSTRGES_ACQUIRE = 'acquire'
 SPAN_KIND_POSTRGES_QUERY = 'query'
 
-__version__ = '0.0.1a0'
+__version__ = '0.0.1a1'
 
 JsonType = Union[None, int, float, str, bool, List[Any], Dict[str, Any]]
 
