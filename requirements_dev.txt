@@ -14,7 +14,7 @@ pytest-cov==2.5.1
 coverage==4.5.1
 
 Sphinx==1.7.6
-sphinx-rtd-theme==0.4.0
+sphinx-rtd-theme==0.4.1
 watchdog==0.8.3
 
 pip==10.0.1
