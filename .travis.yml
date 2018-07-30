@@ -1,0 +1,44 @@
+language: python
+
+sudo: required
+
+services:
+  - docker
+
+python:
+  - 3.6
+
+install:
+  - pip install --upgrade setuptools
+  - pip install codecov
+  - pip install -r requirements_dev.txt
+
+script:
+  - flake8 aioapp_pg examples tests setup.py
+  - bandit -r ./aioapp_pg ./examples setup.py
+  - mypy aioapp_pg examples setup.py --ignore-missing-imports
+  - py.test -v --cov-report term --cov-report html --cov aioapp_pg ./tests
+
+after_success:
+  codecov
+
+deploy:
+  provider: pypi
+  user: inplat
+  distributions: sdist bdist_wheel
+  password:
+    secure: !!binary |
+      S3RJT3JZa2hnQW5WY1BEQWJTNE9DaEJkeG15OWNUbVBPTTA4NXV5dmhyTXpkVyt6WFJzK1VRMkYy
+      TExkd0I0aUxYVXpwOXRiVFhkbHpyUmVpU0MvRFpLODVTOFBneXVZcDJJQ1dhcTVzb1h2MXJtTnVE
+      b0FCWi9QYzlkV2Y0amVtNkFHWU1QVXhNVExVRUVIMjQ2L2RSQnBoSDBjamFPS3RjdE04QU1tZU1k
+      QW9SRlJ4dGJxMkNJaTFFN1JwcTdYZG1veTh6c0V1THpUUWdlblRqYi9MTXQxanV2QjRjdE9TMnZs
+      SDlBa3pkaDh4N3VJRUwrYWhycTZzMmY4QkdQWGFMUCtwaDh4aStOMjFuN1Y2Z2QwSmxZQTY3b3NW
+      RjQvVlZpUk1CMWJzN1RDTlJQcldCZGcxZFB0UFRBZHlBdVM4KytRUU5xeGthWWh5U0NtQzZwV2x4
+      aFE4dTh0N1Noa3FJMElmUU5nN3NablhoS2NseWc0NnBaeEdHeUdNdmNpSkFudkZXeFBWMFUwdVJ4
+      V21rbi81V2tndi9Fbk5oV2R2ZkRPRm5mOXZOby9GQ0Jlb1MydmZtK1p1WTdEYmszdXZkYmQrNEpD
+      anpvRUpwU1dKaHVvbzA0U21lRzloMnEzZHN1aEk1eWpvc0VoS2VsUmRibjdMTlc5UDZwL3FJNUlx
+      RndKN0hWU0ZlTkNFekJ2NE9mdVE3K09WY3lMNHNFc0laRHRZSU5rbmNCRnBSNWdZTW00Mm9GK1pi
+      ZEVXaUJhYVpkY1RxMjVPZ05VNGtQL2dWVmNrQ1VSZjhzdyt1V0hPR0J3UDV3YWV4Q3NmSDJsVC8x
+      dlhzYkR2WkpkaW54K1YrTEJlN2RFSU5TcE5XZlhLcUlUeXY0TE8yUHNmVXZEYTJiMFdMUHd5TEk9
+  true:
+    tags: true

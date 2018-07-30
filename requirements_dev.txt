@@ -1,0 +1,27 @@
+-r requirements.txt
+
+requests==2.18.4
+
+flake8==3.5.0
+mypy==0.610
+bandit==1.4.0
+
+pytest-docker-compose==1.0.1
+pytest==3.6.3
+pytest-asyncio==0.8.0
+pytest-aiohttp==0.3.0
+pytest-cov==2.5.1
+coverage==4.5.1
+
+Sphinx==1.7.5
+sphinx-rtd-theme==0.4.0
+watchdog==0.8.3
+
+pip==10.0.1
+wheel==0.31.1
+tox==3.1.1
+
+async-generator==1.9
+async_timeout==3.0.0
+cryptography==2.2.2
+PyYAML==3.13
