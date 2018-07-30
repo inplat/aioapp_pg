@@ -3,7 +3,7 @@
 requests==2.19.1
 
 flake8==3.5.0
-mypy==0.610
+mypy==0.620
 bandit==1.4.0
 
 pytest-docker-compose==1.0.1
