@@ -1,6 +1,6 @@
 -r requirements.txt
 
-requests==2.18.4
+requests==2.19.1
 
 flake8==3.5.0
 mypy==0.610
