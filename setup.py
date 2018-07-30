@@ -37,7 +37,7 @@ with open('requirements_dev.txt') as requirements_dev_file:
 setup(
     name='aioapp_pg',
     version=version,
-    description="Micro framework based on asyncio",
+    description="Aioapp adapter for asyncpg",
     long_description=readme + '\n\n' + history,
     author="Konstantin Stepanov",
     url='https://github.com/inplat/aioapp_pg',

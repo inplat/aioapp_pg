@@ -142,8 +142,8 @@ def get_free_port(protocol='tcp'):
         sock.close()
 
 
-@pytest.fixture(params=["with_tracer", "without_tracer"])
-async def app(request, loop):
+@pytest.fixture()
+async def app(loop):
     app = Application(loop=loop)
     yield app
     await app.run_shutdown()
