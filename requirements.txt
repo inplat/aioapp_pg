@@ -1,2 +1,2 @@
-aioapp==0.0.2b1
+aioapp==0.0.2b3
 asyncpg==0.17.0
