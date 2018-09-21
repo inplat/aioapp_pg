@@ -17,7 +17,7 @@ SPAN_TYPE_POSTGRES = 'postgres'
 SPAN_KIND_POSTRGES_ACQUIRE = 'acquire'
 SPAN_KIND_POSTRGES_QUERY = 'query'
 
-__version__ = '0.0.1b1'
+__version__ = '0.0.1b2'
 
 JsonType = Union[None, int, float, str, bool, List[Any], Dict[str, Any]]
 
@@ -522,7 +522,7 @@ class Connection:
                     span.remote_endpoint("postgres")
                     span.start()
                     if tracer_config:
-                        tracer_config.on_query_start(span, id, query, args,
+                        tracer_config.on_query_start(span, id, query, (),
                                                      timeout)
                 res = await self._conn.prepare(query, timeout=timeout)
                 if span:
