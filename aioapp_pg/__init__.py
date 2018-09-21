@@ -6,6 +6,7 @@ import asyncio
 import asyncpg
 import asyncpg.protocol
 import asyncpg.pool
+import asyncpg.transaction
 from aioapp.app import Component
 from aioapp.error import PrepareError
 from aioapp.misc import mask_url_pwd
@@ -37,6 +38,28 @@ class PostgresTracerConfig:
 
     def on_query_end(self, ctx: 'Span',
                      err: Optional[Exception], result) -> None:
+        if err:
+            ctx.tag('error.message', str(err))
+            ctx.annotate(traceback.format_exc())
+
+    def on_xact_begin_start(self, ctx: 'Span', isolation_level: str = None,
+                            readonly: bool = False,
+                            deferrable: bool = False) -> None:
+        pass
+
+    def on_xact_begin_end(self, ctx: 'Span',
+                          err: Optional[Exception]) -> None:
+        if err:
+            ctx.tag('error.message', str(err))
+            ctx.annotate(traceback.format_exc())
+
+    def on_xact_finish_start(self, ctx: 'Span', exc_type: type,
+                             exc: BaseException,
+                             tb: type) -> None:
+        pass
+
+    def on_xact_finish_end(self, ctx: 'Span',
+                           err: Optional[Exception]) -> None:
         if err:
             ctx.tag('error.message', str(err))
             ctx.annotate(traceback.format_exc())
@@ -212,7 +235,7 @@ class ConnectionContextManager:
         self._tracer_config = tracer_config
         self._pg_conn: Optional['Connection'] = None
 
-    async def __aenter__(self) -> 'Connection':
+    async def __aenter__(self) -> 'asyncpg.transaction.Transaction':
         span = None
         if self._ctx:
             span = self._ctx.new_child()
@@ -253,47 +276,108 @@ class ConnectionContextManager:
 class TransactionContextManager:
     def __init__(self, ctx: Span, conn: 'Connection',
                  isolation_level: str = None,
+                 readonly: bool = False, deferrable: bool = False,
                  xact_lock: asyncio.Lock = None,
                  tracer_config: Optional[PostgresTracerConfig] = None) -> None:
         self._conn = conn
-        self._isolation_level = isolation_level
+        if isolation_level is None:
+            self._isolation_level = 'read_committed'
+        else:
+            self._isolation_level = isolation_level.lower().replace(' ', '_')
+        self._readonly = readonly
+        self._deferrable = deferrable
         self._ctx = ctx
         self._tracer_config = tracer_config
         self._xact_lock = xact_lock
         self._in_transaction = False
+        self._tr = None
 
-    def _begin_query(self) -> str:
-        query = "BEGIN TRANSACTION"
-        if self._isolation_level:
-            query += " ISOLATION LEVEL %s" % self._isolation_level
-        return query
-
-    async def __aenter__(self) -> None:
+    async def __aenter__(self) -> 'asyncpg.transaction.Transaction':
         if self._in_transaction:
             raise UserWarning('Transaction already started')
         if self._xact_lock is not None:
             await self._xact_lock.acquire()
         self._in_transaction = True
-        await self._conn.execute(self._ctx,
-                                 query=self._begin_query(),
-                                 id="BeginTransaction",
-                                 tracer_config=self._tracer_config)
+
+        with await self._conn._lock:
+            span = None
+            if self._ctx:
+                span = self._ctx.new_child()
+            try:
+                if span:
+                    span.kind(CLIENT)
+                    span.name("db:BeginTransaction")
+                    span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
+                    span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.remote_endpoint("postgres")
+                    span.annotate(
+                        'Isolation Level: %r\n'
+                        'Readonly: %r\n'
+                        'Deferrable: %r\n' % (
+                            repr(self._isolation_level),
+                            repr(self._readonly),
+                            repr(self._deferrable),
+                        ))
+                    span.start()
+                    if self._tracer_config:
+                        self._tracer_config.on_xact_begin_start(
+                            span, self._isolation_level, self._readonly,
+                            self._deferrable)
+                self._tr = self._conn._conn.transaction(
+                    isolation=self._isolation_level,
+                    readonly=self._readonly,
+                    deferrable=self._deferrable)
+                await self._tr.__aenter__()  # type: ignore
+                if span:
+                    if self._tracer_config:
+                        self._tracer_config.on_xact_begin_end(span, None)
+                    span.finish()
+            except Exception as err:
+                if span:
+                    if self._tracer_config:
+                        self._tracer_config.on_xact_begin_end(span, err)
+                    span.finish(exception=err)
+                raise
+            return self._tr
 
     async def __aexit__(self, exc_type: type, exc: BaseException,
                         tb: type) -> bool:
-        try:
-            if exc:
-                await self._conn.execute(self._ctx,
-                                         query="ROLLBACK", id="Rollback",
-                                         tracer_config=self._tracer_config)
-            else:
-                await self._conn.execute(self._ctx,
-                                         query="COMMIT", id="Commit",
-                                         tracer_config=self._tracer_config)
-        finally:
-            self._in_transaction = False
-            if self._xact_lock is not None:
-                self._xact_lock.release()
+        with await self._conn._lock:
+            span = None
+            if self._ctx:
+                span = self._ctx.new_child()
+            try:
+                if span:
+                    span.kind(CLIENT)
+                    if exc_type is not None:
+                        span.name("db:Rollback")
+                    else:
+                        span.name("db:Commit")
+                    span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
+                    span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.remote_endpoint("postgres")
+                    span.start()
+                    if self._tracer_config:
+                        self._tracer_config.on_xact_finish_start(
+                            span, exc_type, exc, tb)
+                if self._tr:
+                    await self._tr.__aexit__(exc_type, exc, tb)
+                    self._tr = None
+
+                if span:
+                    if self._tracer_config:
+                        self._tracer_config.on_xact_finish_end(span, None)
+                    span.finish()
+            except Exception as err:
+                if span:
+                    if self._tracer_config:
+                        self._tracer_config.on_xact_finish_end(span, err)
+                    span.finish(exception=err)
+                raise
+            finally:
+                self._in_transaction = False
+                if self._xact_lock is not None:
+                    self._xact_lock.release()
         return False
 
 
@@ -307,9 +391,11 @@ class Connection:
 
     def xact(self, ctx: Span,
              isolation_level: str = None,
+             readonly: bool = False, deferrable: bool = False,
              tracer_config: Optional[PostgresTracerConfig] = None
              ) -> 'TransactionContextManager':
         return TransactionContextManager(ctx, self, isolation_level,
+                                         readonly, deferrable,
                                          self._xact_lock,
                                          tracer_config)
 
@@ -334,7 +420,8 @@ class Connection:
                     if tracer_config:
                         tracer_config.on_query_start(span, id, query, args,
                                                      timeout)
-                res = await self._conn.execute(query, *args, timeout=timeout)
+                res = await                self._conn.execute(query, *args,
+                                                              timeout=timeout)
                 if span:
                     if tracer_config:
                         tracer_config.on_query_end(span, None, res)
@@ -369,7 +456,8 @@ class Connection:
                     if tracer_config:
                         tracer_config.on_query_start(span, id, query, args,
                                                      timeout)
-                res = await self._conn.fetchrow(query, *args, timeout=timeout)
+                res = await                self._conn.fetchrow(query, *args,
+                                                               timeout=timeout)
                 if span:
                     if tracer_config:
                         tracer_config.on_query_end(span, None, res)
@@ -402,7 +490,8 @@ class Connection:
                     if tracer_config:
                         tracer_config.on_query_start(span, id, query, args,
                                                      timeout)
-                res = await self._conn.fetch(query, *args, timeout=timeout)
+                res = await                self._conn.fetch(query, *args,
+                                                            timeout=timeout)
                 if span:
                     if tracer_config:
                         tracer_config.on_query_end(span, None, res)
