@@ -7,6 +7,7 @@ import asyncpg
 import asyncpg.protocol
 import asyncpg.pool
 import asyncpg.transaction
+import asyncpg.prepared_stmt
 from aioapp.app import Component
 from aioapp.error import PrepareError
 from aioapp.misc import mask_url_pwd
@@ -492,6 +493,38 @@ class Connection:
                                                      timeout)
                 res = await                self._conn.fetch(query, *args,
                                                             timeout=timeout)
+                if span:
+                    if tracer_config:
+                        tracer_config.on_query_end(span, None, res)
+                    span.finish()
+            except Exception as err:
+                if span:
+                    if tracer_config:
+                        tracer_config.on_query_end(span, err, None)
+                    span.finish(exception=err)
+                raise
+            return res
+
+    async def prepare(self, ctx: Span, id: str,
+                      query: str, timeout: float = None,
+                      tracer_config: Optional[PostgresTracerConfig] = None
+                      ) -> List[asyncpg.prepared_stmt.PreparedStatement]:
+        with await self._lock:
+            span = None
+            if ctx:
+                span = ctx.new_child()
+            try:
+                if span:
+                    span.kind(CLIENT)
+                    span.name("db:prepare:%s" % id)
+                    span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
+                    span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.remote_endpoint("postgres")
+                    span.start()
+                    if tracer_config:
+                        tracer_config.on_query_start(span, id, query, args,
+                                                     timeout)
+                res = await self._conn.prepare(query, timeout=timeout)
                 if span:
                     if tracer_config:
                         tracer_config.on_query_end(span, None, res)

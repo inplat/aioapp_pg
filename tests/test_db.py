@@ -88,6 +88,12 @@ async def test_postgres(app, postgres):
     res = await db.query_one(span, 'test',
                              'SELECT COUNT(*) FROM %s' % table_name,
                              timeout=10)
+
+    async with db.connection(span) as conn:
+        stmt = await conn.prepare(span, 'test:prepare', 'SELECT $1::int as id')
+        assert (await stmt.fetchrow(3))[0] == 3
+        assert (await stmt.fetchrow(1))[0] == 1
+
     assert res[0] == 1
 
 
