@@ -236,7 +236,7 @@ class ConnectionContextManager:
         self._tracer_config = tracer_config
         self._pg_conn: Optional['Connection'] = None
 
-    async def __aenter__(self) -> 'asyncpg.transaction.Transaction':
+    async def __aenter__(self) -> 'Connection':
         span = None
         if self._ctx:
             span = self._ctx.new_child()
