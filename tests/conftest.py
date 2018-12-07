@@ -74,7 +74,7 @@ async def docker_compose(loop, request,
     if not to_start:
         yield result
     else:
-        containers = docker_project.up(to_start)
+        containers = docker_project.up(to_start, remove_orphans=True)
 
         if not containers:
             raise ValueError("`docker-compose` didn't launch any containers!")
