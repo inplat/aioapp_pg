@@ -294,11 +294,13 @@ class TransactionContextManager:
         self._tr = None
 
     async def __aenter__(self) -> 'asyncpg.transaction.Transaction':
+        self._in_transaction = self._conn._in_transaction
         if self._in_transaction:
             raise UserWarning('Transaction already started')
         if self._xact_lock is not None:
             await self._xact_lock.acquire()
         self._in_transaction = True
+        self._conn._in_transaction = True
 
         with await self._conn._lock:
             span = None
@@ -377,6 +379,7 @@ class TransactionContextManager:
                 raise
             finally:
                 self._in_transaction = False
+                self._conn._in_transaction = False
                 if self._xact_lock is not None:
                     self._xact_lock.release()
         return False
@@ -389,6 +392,11 @@ class Connection:
         self._conn = conn
         self._lock = asyncio.Lock(loop=db.loop)
         self._xact_lock = asyncio.Lock(loop=db.loop)
+        self._in_transaction = False
+
+    @property
+    def in_transaction(self) -> bool:
+        return self._in_transaction
 
     def xact(self, ctx: Span,
              isolation_level: str = None,
