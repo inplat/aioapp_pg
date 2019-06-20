@@ -246,6 +246,7 @@ class ConnectionContextManager:
                 span.name("db:Acquire")
                 span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
                 span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_ACQUIRE)
+                span.metrics_tag('query_id', 'Acquire')
                 span.remote_endpoint("postgres")
                 span.start()
                 if self._tracer_config:
@@ -312,6 +313,7 @@ class TransactionContextManager:
                     span.name("db:BeginTransaction")
                     span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
                     span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.metrics_tag('query_id', 'BeginTransaction')
                     span.remote_endpoint("postgres")
                     span.annotate(
                         'Isolation Level: %r\n'
@@ -358,6 +360,7 @@ class TransactionContextManager:
                         span.name("db:Commit")
                     span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
                     span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.metrics_tag('query_id', 'Commit')
                     span.remote_endpoint("postgres")
                     span.start()
                     if self._tracer_config:
@@ -423,6 +426,7 @@ class Connection:
                     span.name("db:%s" % id)
                     span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
                     span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.metrics_tag('query_id', id)
                     span.remote_endpoint("postgres")
                     span.annotate(repr(args))
                     span.start()
@@ -459,6 +463,7 @@ class Connection:
                     span.name("db:%s" % id)
                     span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
                     span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.metrics_tag('query_id', id)
                     span.remote_endpoint("postgres")
                     span.annotate(repr(args))
                     span.start()
@@ -493,6 +498,7 @@ class Connection:
                     span.name("db:%s" % id)
                     span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
                     span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.metrics_tag('query_id', id)
                     span.remote_endpoint("postgres")
                     span.annotate(repr(args))
                     span.start()
@@ -527,6 +533,7 @@ class Connection:
                     span.name("db:prepare:%s" % id)
                     span.metrics_tag(SPAN_TYPE, SPAN_TYPE_POSTGRES)
                     span.metrics_tag(SPAN_KIND, SPAN_KIND_POSTRGES_QUERY)
+                    span.metrics_tag('query_id', 'prepare:%s' % id)
                     span.remote_endpoint("postgres")
                     span.start()
                     if tracer_config:
